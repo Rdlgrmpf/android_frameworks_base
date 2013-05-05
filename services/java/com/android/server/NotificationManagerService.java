@@ -64,6 +64,8 @@ import android.util.Slog;
 import android.util.Xml;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
+import android.view.View;
+import android.view.View.OnSystemUiVisibilityChangeListener;
 import android.widget.Toast;
 
 import com.android.internal.statusbar.StatusBarNotification;
@@ -174,6 +176,9 @@ public class NotificationManagerService extends INotificationManager.Stub
     private boolean mQuietHoursStill = true;
     // Dim LED if hardware supports it.
     private boolean mQuietHoursDim = true;
+    // Don't play sounds if not fullscreen
+    private boolean mNotificationFsOnly = true;
+    private boolean mIsFullscreen = false;
 
     // Notification control database. For now just contains disabled packages.
     private AtomicFile mPolicyFile;
@@ -797,6 +802,18 @@ public class NotificationManagerService extends INotificationManager.Stub
         ledObserver.observe();
         QuietHoursSettingsObserver qhObserver = new QuietHoursSettingsObserver(mHandler);
         qhObserver.observe();
+        //hack to detect fullscreen
+        View fullscreenHelper = new View(mContext);
+        fullscreenHelper.setOnSystemUiVisibilityChangeListener(new OnSystemUiVisibilityChangeListener() {
+            @Override
+            public void onSystemUiVisibilityChange(int visibility) {
+                if(visibility == View.SYSTEM_UI_FLAG_FULLSCREEN) {
+                    mIsFullscreen = true;
+                } else {
+                    mIsFullscreen = false;
+                }
+            }
+        });
     }
 
     void systemReady() {
@@ -1116,6 +1133,10 @@ public class NotificationManagerService extends INotificationManager.Stub
         synchronized (mNotificationList) {
             final boolean inQuietHours = inQuietHours();
 
+            final boolean notificationFsOnly = Settings.System.getInt(mContext.getContentResolver(),
+                                    Settings.System.NOTIFICATION_FULLSCREEN_ONLY, 1) != 0;
+
+
             NotificationRecord r = new NotificationRecord(pkg, tag, id, 
                     callingUid, callingPid, userId,
                     score,
@@ -1223,7 +1244,7 @@ public class NotificationManagerService extends INotificationManager.Stub
                 Uri soundUri = null;
                 boolean hasValidSound = false;
 
-                if (!(inQuietHours && mQuietHoursMute) && useDefaultSound) {
+                if (!(inQuietHours && mQuietHoursMute) && useDefaultSound && (mScreenOn || !mNotificationFsOnly || (mNotificationFsOnly && mIsFullscreen))) {
                     soundUri = Settings.System.DEFAULT_NOTIFICATION_URI;
 
                     // check to see if the default notification sound is silent

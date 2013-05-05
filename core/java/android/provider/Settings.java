@@ -1875,6 +1875,12 @@ public final class Settings {
         public static final String SAFE_HEADSET_VOLUME = "safe_headset_volume";
 
         /**
+         * Whether to play a sound only when fullscreen app is visible.
+         * @hide
+         */
+        public static final String NOTIFICATION_FULLSCREEN_ONLY = "notification_fullscreen_only";
+
+        /**
          * Master volume (float in the range 0.0f to 1.0f).
          * @hide
          */
